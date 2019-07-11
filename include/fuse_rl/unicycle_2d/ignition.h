@@ -44,6 +44,8 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <ros/ros.h>
 
+#include <atomic>
+
 
 namespace fuse_rl
 {
@@ -156,6 +158,8 @@ protected:
    * @param[in] pose - The pose and covariance to use for the prior constraints on (x, y, yaw)
    */
   void sendPrior(const geometry_msgs::PoseWithCovarianceStamped& pose);
+
+  std::atomic_bool started_;  //!< Flag indicating the sensor has been started
 
   bool initial_transaction_sent_;  //!< Flag indicating an initial transaction has been sent already
 

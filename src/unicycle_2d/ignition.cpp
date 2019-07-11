@@ -74,6 +74,7 @@ namespace unicycle_2d
 
 Ignition::Ignition() :
   fuse_core::AsyncSensorModel(1),
+  started_(false),
   initial_transaction_sent_(false),
   device_id_(fuse_core::uuid::NIL)
 {
@@ -91,10 +92,7 @@ void Ignition::onInit()
   {
     reset_client_ = node_handle_.serviceClient<std_srvs::Empty>(ros::names::resolve(params_.reset_service));
   }
-}
 
-void Ignition::start()
-{
   // Advertise
   subscriber_ = node_handle_.subscribe(
     ros::names::resolve(params_.topic),
@@ -109,6 +107,11 @@ void Ignition::start()
     ros::names::resolve(params_.set_pose_deprecated_service),
     &Ignition::setPoseDeprecatedServiceCallback,
     this);
+}
+
+void Ignition::start()
+{
+  started_ = true;
 
   // TODO(swilliams) Should this be executed every time optimizer.reset() is called, or only once ever?
   //                 I feel like it should be "only once ever".
@@ -130,9 +133,7 @@ void Ignition::start()
 
 void Ignition::stop()
 {
-  subscriber_.shutdown();
-  set_pose_service_.shutdown();
-  set_pose_deprecated_service_.shutdown();
+  started_ = false;
 }
 
 void Ignition::subscriberCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg)
@@ -143,7 +144,7 @@ void Ignition::subscriberCallback(const geometry_msgs::PoseWithCovarianceStamped
   }
   catch (const std::exception& e)
   {
-    ROS_ERROR_STREAM(e.what() << " Ignoring request.");
+    ROS_ERROR_STREAM(e.what() << " Ignoring message.");
   }
 }
 
@@ -181,6 +182,11 @@ bool Ignition::setPoseDeprecatedServiceCallback(
 
 void Ignition::process(const geometry_msgs::PoseWithCovarianceStamped& pose)
 {
+  // Verify we are in the correct state to process set pose requests
+  if (!started_)
+  {
+    throw std::runtime_error("Attempting to set the pose while the sensor is stopped.");
+  }
   // Validate the requested pose and covariance before we do anything
   if (!std::isfinite(pose.pose.pose.position.x) || !std::isfinite(pose.pose.pose.position.y))
   {
